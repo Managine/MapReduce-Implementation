@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package masterworker;
+
+service MR {
+    rpc sendTask (TaskInfo) returns (TaskReply) {}
+}
+
+message TaskInfo {
+    int32 taskType = 1;   //0 for map, 1 for reduce
+    string userid = 2;
+
+    //map part
+    string fileName = 3;
+    int32 offset = 4;
+    string fileName2 = 5;   //give "" if not needed
+    int32 size = 6;
+
+    //reduce part
+    repeated ReduceInfo reduceInfos = 7;
+    string outputdir = 8;
+}
+
+message TaskReply {
+    string workerId = 1;
+    repeated TaskReplyInfo replyInfos = 2;
+}
+
+message ReduceInfo {
+    string fileName = 1;
+}
+
+message TaskReplyInfo {
+    string fileName = 1;
+
+}

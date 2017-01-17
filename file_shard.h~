@@ -1,0 +1,81 @@
+#pragma once
+
+#include <vector>
+#include <fstream>
+#include "mapreduce_spec.h"
+#include <string>
+
+
+/* CS6210_TASK: Create your own data structure here, where you can hold information about file splits,
+     that your master would use for its own bookkeeping and to convey the tasks to the workers for mapping */
+struct FileShard {
+    std::string fileName;
+    std::string fileName2;
+    int offset;
+    int size;
+    
+    FileShard(std::string name) {
+        fileName=name;
+        fileName2="";
+    }
+};
+
+
+/* CS6210_TASK: Create fileshards from the list of input files, map_kilobytes etc. using mr_spec you populated  */ 
+inline bool shard_files(const MapReduceSpec& mr_spec, std::vector<FileShard>& fileShards) {    
+	try {
+		std::cerr<<"begin creating fileshards"<<std::endl;
+        for (auto fileName : mr_spec.inputFileName) {
+			std::cerr<<"file name: "<<fileName<<std::endl;
+            std::fstream file(fileName, std::fstream::in);
+            file.seekg(0, file.end);
+            int length = file.tellg();
+            file.seekg(0, file.beg);
+            int offset = 0;
+			std::cerr<<fileName<<" length:"<<length<<std::endl;            
+
+            if (fileShards.size()!=0 && fileShards.back().size<mr_spec.map_kilobyte*1024) {
+				std::cerr<<"create new file"<<std::endl;
+				offset += mr_spec.map_kilobyte*1024 - fileShards.back().size;
+				fileShards.back().fileName2 = fileName;
+				if (offset<length) {
+		            file.seekg(offset);
+		            while (file.tellg()!=length && file.get()!='\n')
+		                offset++;
+		            fileShards.back().size+=offset;
+		            offset++;
+				} else {
+					fileShards.back().size+=length;
+				}
+            }
+            while (offset + mr_spec.map_kilobyte*1024<length) {
+                FileShard shard(fileName);
+                shard.offset=offset;
+				std::cerr<<"the "<<fileShards.size()<<" offset:"<<offset<<std::endl;  
+				offset += mr_spec.map_kilobyte*1024;
+                file.seekg(offset);
+                while (file.tellg()!=length && file.get()!='\n')
+                    offset++;
+                offset++;
+                shard.size=offset-shard.offset-1;
+                fileShards.push_back(shard);
+            }
+            FileShard shard(fileName);
+			shard.size=length-offset;
+			if (shard.size>0) {
+		        shard.offset=offset;
+		        fileShards.push_back(shard);
+			}
+            file.close();
+        }
+		for(int i = 0; i < fileShards.size(); i++){
+			std::cerr<<"file shard "<< i << " has fileName = " << fileShards[i].fileName<<std::endl;
+			std::cerr<<"file shard "<< i << " has fileName2 = " << fileShards[i].fileName2<<std::endl;
+			std::cerr<<"file shard "<< i << " has offset = " << fileShards[i].offset<<std::endl;
+			std::cerr<<"file shard "<< i << " has size = " << fileShards[i].size<<std::endl;
+		}
+    } catch (...) {
+        return false;
+    }
+	return true;
+}
